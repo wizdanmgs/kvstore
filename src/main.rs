@@ -44,5 +44,7 @@ async fn main() -> anyhow::Result<()> {
     // =========================================================
     server::run("127.0.0.1:6380", shared_store).await?;
 
+    println!("Server exited cleanly.");
+
     Ok(())
 }
