@@ -1,0 +1,74 @@
+use std::sync::{Arc, Mutex};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::TcpListener;
+
+use crate::command::Command;
+use crate::store::Store;
+
+// =========================================================
+// TCP SERVER ENTRY POINT
+// =========================================================
+pub async fn run(
+    addr: &str,
+    store: Arc<Mutex<Store>>, // Shared application state
+) -> anyhow::Result<()> {
+    // Bind TCP listener to given address
+    let listener = TcpListener::bind(addr).await?;
+    println!("Server listening on {}", addr);
+
+    loop {
+        // =====================================================
+        // 1️⃣ ACCEPT NEW CONNECTION
+        // =====================================================
+        let (socket, _) = listener.accept().await?;
+
+        // Clone Arc so each connection has shared access
+        let store = store.clone();
+
+        // =====================================================
+        // 2️⃣ SPAWN ASYNC TASK FOR CLIENT
+        // -----------------------------------------------------
+        // Each client runs independently.
+        // =====================================================
+        tokio::spawn(async move {
+            // Split socket into reader & writer halves
+            let (reader, mut writer) = socket.into_split();
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+
+            loop {
+                // =============================================
+                // 3️⃣ READ CLIENT INPUT (line-based protocol)
+                // =============================================
+                let bytes_read = reader.read_line(&mut line).await;
+
+                // If connection closed or error -> exit loop
+                if bytes_read.is_err() || bytes_read.unwrap() == 0 {
+                    break;
+                }
+
+                // =============================================
+                // 4️⃣ PARSE + EXECUTE COMMAND
+                // =============================================
+                let response = match Command::parse(&line) {
+                    Ok(cmd) => {
+                        // Lock store for safe mutable access
+                        let mut store = store.lock().unwrap();
+                        cmd.execute(&mut store)
+                    }
+                    Err(e) => format!("ERR {}\n", e),
+                };
+
+                // =============================================
+                // 5️⃣ WRITE RESPONSE BACK TO CLIENT
+                // =============================================
+                if writer.write_all(response.as_bytes()).await.is_err() {
+                    break;
+                }
+
+                // Clear buffer for next read
+                line.clear();
+            }
+        });
+    }
+}
