@@ -21,7 +21,12 @@ impl Store {
 
     // Insert or overwrite a key
     pub fn set(&self, key: String, value: String) {
-        self.map.insert(key, value);
+        // Append to WAL (Write-Ahead Log) before modifying memory
+        if let Err(e) = crate::wal::append_set(&key, &value) {
+            eprintln!("Failed to write WAL: {}", e);
+        }
+
+        self.set_internal(key, value);
 
         // =============================================
         // OPTIONAL: Persist snapshot on every SET
@@ -29,6 +34,11 @@ impl Store {
         if let Err(e) = crate::persistence::save(self, "db.bin") {
             eprintln!("Failed to persist DB: {}", e);
         }
+    }
+
+    // Apply to in-memory store
+    pub fn set_internal(&self, key: String, value: String) {
+        self.map.insert(key, value);
     }
 
     // Retrieve value (cloned to avoid lifetime issues)

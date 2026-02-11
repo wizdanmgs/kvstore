@@ -3,6 +3,7 @@ mod command;
 mod persistence;
 mod server;
 mod store;
+mod wal;
 
 use std::sync::Arc;
 use store::Store;
@@ -27,6 +28,13 @@ async fn main() -> anyhow::Result<()> {
     // Arc   -> allows multiple threads/tasks to share ownership
     // =========================================================
     let shared_store = Arc::new(store);
+
+    // =========================================================
+    // 2️⃣  REPLAY WAL TO REBUILD DB
+    // ---------------------------------------------------------
+    // Replay WAL on startup to rebuild memory
+    // =========================================================
+    wal::replay(&shared_store)?;
 
     // =========================================================
     // 3️⃣  START TCP SERVER
