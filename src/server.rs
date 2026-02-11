@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 
@@ -10,7 +10,7 @@ use crate::store::Store;
 // =========================================================
 pub async fn run(
     addr: &str,
-    store: Arc<Mutex<Store>>, // Shared application state
+    store: Arc<Store>, // Shared application state
 ) -> anyhow::Result<()> {
     // Bind TCP listener to given address
     let listener = TcpListener::bind(addr).await?;
@@ -51,11 +51,7 @@ pub async fn run(
                 // 4️⃣ PARSE + EXECUTE COMMAND
                 // =============================================
                 let response = match Command::parse(&line) {
-                    Ok(cmd) => {
-                        // Lock store for safe mutable access
-                        let mut store = store.lock().unwrap();
-                        cmd.execute(&mut store)
-                    }
+                    Ok(cmd) => cmd.execute(&store),
                     Err(e) => format!("ERR {}\n", e),
                 };
 

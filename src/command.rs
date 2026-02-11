@@ -21,15 +21,15 @@ impl Command {
     }
 
     // Execute command against the Store
-    pub fn execute(self, store: &mut Store) -> String {
+    pub fn execute(self, store: &Store) -> String {
         match self {
             Command::Set(key, value) => {
                 store.set(key, value);
-                "OK\n".to_string()
+                "OK\n".into()
             }
             Command::Get(key) => match store.get(&key) {
                 Some(val) => format!("{}\n", val),
-                None => "nil\n".to_string(),
+                None => "nil\n".into(),
             },
         }
     }

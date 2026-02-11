@@ -4,7 +4,7 @@ mod persistence;
 mod server;
 mod store;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use store::Store;
 
 #[tokio::main]
@@ -22,12 +22,11 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // =========================================================
-    // 2️⃣  WRAP STORE IN Arc<Mutex<>>
+    // 2️⃣  WRAP STORE IN Arc<>
     // ---------------------------------------------------------
     // Arc   -> allows multiple threads/tasks to share ownership
-    // Mutex -> ensures safe mutable access from multiple clients
     // =========================================================
-    let shared_store = Arc::new(Mutex::new(store));
+    let shared_store = Arc::new(store);
 
     // =========================================================
     // 3️⃣  START TCP SERVER

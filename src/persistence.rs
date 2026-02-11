@@ -1,4 +1,5 @@
 use crate::store::Store;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -6,8 +7,11 @@ use std::io::{Read, Write};
 // SAVE STORE TO DISK (SNAPSHOT)
 // =========================================================
 pub fn save(store: &Store, path: &str) -> anyhow::Result<()> {
+    // Convert DashMap to HashMap
+    let snapshot: HashMap<String, String> = store.to_hashmap();
+
     // Serialize store into compact binary (MessagePack)
-    let encoded = rmp_serde::to_vec(store)?;
+    let encoded = rmp_serde::to_vec(&snapshot)?;
 
     // Create or overwrite file
     let mut file = File::create(path)?;
@@ -29,7 +33,7 @@ pub fn load(path: &str) -> anyhow::Result<Store> {
     file.read_to_end(&mut buffer)?;
 
     // Deserialize binary back into Store
-    let store = rmp_serde::from_slice(&buffer)?;
+    let store: HashMap<String, String> = rmp_serde::from_slice(&buffer)?;
 
-    Ok(store)
+    Ok(Store::from_hashmap(store))
 }
