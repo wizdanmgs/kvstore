@@ -11,3 +11,4 @@ serde = { version = "1", features = ["derive"] }
 rmp-serde = "1"
 anyhow = "1"
 dashmap = "6"
+clap = { version = "4", features = ["derive"] }

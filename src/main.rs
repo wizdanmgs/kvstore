@@ -6,13 +6,43 @@ mod server;
 mod store;
 mod wal;
 
+use clap::Parser;
 use std::sync::Arc;
 use tokio::time::{Duration, interval};
 
 use store::Store;
 
+// =====================================================
+// CLI Definition
+// =====================================================
+#[derive(Parser, Debug)]
+#[command(
+    name = "kvstore",
+    version,
+    about = "A simplified Redis-like key-value store"
+)]
+struct Cli {
+    /// Address to bind the TCP server
+    #[arg(short, long, default_value = "127.0.0.1:6380")]
+    addr: String,
+
+    /// Database file path
+    #[arg(short, long, default_value = "db.bin")]
+    db: String,
+}
+
+// =====================================================
+// Entry Point
+// =====================================================
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // =========================================================
+    // PARSE CLI arguments
+    // ---------------------------------------------------------
+    // Get address and DB file path from CLI
+    // =========================================================
+    let cli = Cli::parse();
+
     // =========================================================
     // LOAD DATABASE FROM DISK (if exists)
     // ---------------------------------------------------------
@@ -20,7 +50,9 @@ async fn main() -> anyhow::Result<()> {
     // If file does not exist or fails to load,
     // fallback to a new empty Store.
     // =========================================================
-    let store = persistence::load("db.bin").unwrap_or_else(|_| {
+    println!("Using database file {}", cli.db);
+
+    let store = persistence::load(&cli.db).unwrap_or_else(|_| {
         println!("No existing DB found. Starting fresh.");
         Store::new(1000)
     });
@@ -59,10 +91,11 @@ async fn main() -> anyhow::Result<()> {
     // =========================================================
     // START TCP SERVER
     // ---------------------------------------------------------
+    // Get port from argument or env.
     // Pass shared store into server so all connections
     // operate on the same in-memory database.
     // =========================================================
-    server::run("127.0.0.1:6380", shared_store).await?;
+    server::run(&cli.addr, shared_store).await?;
 
     println!("Server exited cleanly.");
 
