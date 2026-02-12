@@ -4,7 +4,7 @@ use crate::store::Store;
 // SUPPORTED COMMANDS
 // =========================================================
 pub enum Command {
-    Set(String, String),
+    Set(String, String, Option<u64>),
     Get(String),
 }
 
@@ -14,7 +14,11 @@ impl Command {
         let parts: Vec<&str> = input.trim().split_whitespace().collect();
 
         match parts.as_slice() {
-            ["SET", key, value] => Ok(Command::Set(key.to_string(), value.to_string())),
+            ["SET", key, value] => Ok(Command::Set(key.to_string(), value.to_string(), None)),
+            ["SET", key, value, "EX", ttl] => {
+                let ttl = ttl.parse::<u64>().map_err(|_| "Invalid TTL")?;
+                Ok(Command::Set(key.to_string(), value.to_string(), Some(ttl)))
+            }
             ["GET", key] => Ok(Command::Get(key.to_string())),
             _ => Err("Invalid command"),
         }
@@ -23,8 +27,8 @@ impl Command {
     // Execute command against the Store
     pub fn execute(self, store: &Store) -> String {
         match self {
-            Command::Set(key, value) => {
-                store.set(key, value);
+            Command::Set(key, value, ttl) => {
+                store.set(key, value, ttl);
                 "OK\n".into()
             }
             Command::Get(key) => match store.get(&key) {

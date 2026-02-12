@@ -7,15 +7,16 @@ use crate::store::Store;
 // =========================================================
 // Append a SET operation to WAL file
 // =========================================================
-pub fn append_set(key: &str, value: &str) -> anyhow::Result<()> {
+pub fn append_set(key: &str, value: &str, ttl: Option<u64>) -> anyhow::Result<()> {
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open("wal.log")?;
 
-    // Simple line protocol
-    // Format: SET key value\n
-    writeln!(file, "SET {} {}", key, value)?;
+    match ttl {
+        Some(t) => writeln!(file, "SET {} {} {}", key, value, t)?,
+        None => writeln!(file, "SET {} {}", key, value)?,
+    }
 
     Ok(())
 }
@@ -35,9 +36,16 @@ pub fn replay(store: &Store) -> anyhow::Result<()> {
         let line = line?;
         let parts: Vec<&str> = line.split_whitespace().collect();
 
-        if parts.len() == 3 && parts[0] == "SET" {
-            // Use set_internal instead of set to avoid rewriting to WAL during replay
-            store.set_internal(parts[1].to_string(), parts[2].to_string());
+        // Use set_internal instead of set to avoid rewriting to WAL during replay
+        match parts.as_slice() {
+            ["SET", key, value] => {
+                store.set_internal(key.to_string(), value.to_string(), None);
+            }
+            ["SET", key, value, ttl] => {
+                let ttl = ttl.parse::<u64>().ok();
+                store.set_internal(key.to_string(), value.to_string(), ttl);
+            }
+            _ => {}
         }
     }
 

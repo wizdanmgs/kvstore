@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 // =========================================================
 pub fn save(store: &Store, path: &str) -> anyhow::Result<()> {
     // Convert DashMap to HashMap
-    let snapshot: HashMap<String, String> = store.to_hashmap();
+    let snapshot: HashMap<String, (String, Option<u64>)> = store.to_hashmap();
 
     // Serialize store into compact binary (MessagePack)
     let encoded = rmp_serde::to_vec(&snapshot)?;
@@ -33,7 +33,7 @@ pub fn load(path: &str) -> anyhow::Result<Store> {
     file.read_to_end(&mut buffer)?;
 
     // Deserialize binary back into Store
-    let store: HashMap<String, String> = rmp_serde::from_slice(&buffer)?;
+    let store: HashMap<String, (String, Option<u64>)> = rmp_serde::from_slice(&buffer)?;
 
     Ok(Store::from_hashmap(store))
 }

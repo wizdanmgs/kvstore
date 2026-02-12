@@ -6,12 +6,14 @@ mod store;
 mod wal;
 
 use std::sync::Arc;
+use tokio::time::{Duration, interval};
+
 use store::Store;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // =========================================================
-    // 1️⃣  LOAD DATABASE FROM DISK (if exists)
+    // LOAD DATABASE FROM DISK (if exists)
     // ---------------------------------------------------------
     // Try to load persisted database from "db.bin".
     // If file does not exist or fails to load,
@@ -23,21 +25,38 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // =========================================================
-    // 2️⃣  WRAP STORE IN Arc<>
+    // WRAP STORE IN Arc<>
     // ---------------------------------------------------------
-    // Arc   -> allows multiple threads/tasks to share ownership
+    // Arc -> allows multiple threads/tasks to share ownership
     // =========================================================
     let shared_store = Arc::new(store);
 
     // =========================================================
-    // 2️⃣  REPLAY WAL TO REBUILD DB
+    // REPLAY WAL TO REBUILD DB
     // ---------------------------------------------------------
-    // Replay WAL on startup to rebuild memory
+    // Replay WAL on startup to rebuild memory.
     // =========================================================
     wal::replay(&shared_store)?;
 
     // =========================================================
-    // 3️⃣  START TCP SERVER
+    // SET EXPIRATION WORKER
+    // ---------------------------------------------------------
+    // Clear expired keys every 5 seconds.
+    // =========================================================
+    {
+        let store = shared_store.clone();
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_secs(5));
+
+            loop {
+                ticker.tick().await;
+                store.cleanup_expired();
+            }
+        });
+    }
+
+    // =========================================================
+    // START TCP SERVER
     // ---------------------------------------------------------
     // Pass shared store into server so all connections
     // operate on the same in-memory database.
