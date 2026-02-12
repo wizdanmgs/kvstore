@@ -25,15 +25,19 @@ It supports persistence, write-ahead logging (WAL), TTL expiration, LRU eviction
 Client (redis-cli)
 │
 ▼
+
 TCP Server (Tokio)
 │
 ▼
+
 RESP Parser
 │
 ▼
+
 Command Executor
 │
 ▼
+
 In-Memory Store (DashMap)
 │
 ├── WAL (append-only log)
@@ -185,7 +189,7 @@ USAGE:
 kvstore [OPTIONS]
 
 OPTIONS:
--a, --addr <ADDR> Address to bind (default: 127.0.0.1:6379)
+-a, --addr <ADDR> Address to bind (default: 127.0.0.1:6380)
 -d, --db <FILE> Database file path (default: db.bin)
 -h, --help Print help
 -V, --version Print version
