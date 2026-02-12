@@ -1,9 +1,10 @@
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::signal;
 
 use crate::command::Command;
+use crate::resp;
 use crate::store::Store;
 
 // =========================================================
@@ -35,27 +36,33 @@ pub async fn run(
                 // =====================================================
                 tokio::spawn(async move {
                     // Split socket into reader & writer halves
-                    let (reader, mut writer) = socket.into_split();
-                    let mut reader = BufReader::new(reader);
-                    let mut line = String::new();
+                    let (mut reader, mut writer) = socket.into_split();
 
                     loop {
                         // =============================================
-                        // 3️⃣ READ CLIENT INPUT (line-based protocol)
-                        // =============================================
-                        let bytes_read = reader.read_line(&mut line).await;
-
-                        // If connection closed or error -> exit loop
-                        if bytes_read.is_err() || bytes_read.unwrap() == 0 {
-                            break;
-                        }
-
-                        // =============================================
                         // 4️⃣ PARSE + EXECUTE COMMAND
                         // =============================================
-                        let response = match Command::parse(&line) {
-                            Ok(cmd) => cmd.execute(&store),
-                            Err(e) => format!("ERR {}\n", e),
+                        let parsed = resp::parse(&mut reader).await;
+
+                        let response = match parsed {
+                            Ok(resp::RespValue::Array(items)) => {
+                                let args: Vec<String> = items.into_iter()
+                                    .filter_map(|v| {
+                                        if let resp::RespValue::BulkString(s) = v {
+                                            Some(s)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect();
+
+                                match Command::from_vec(args) {
+                                    Ok(cmd) => cmd.execute(&store),
+                                    Err(_) => resp::encode_error("ERR invalid request"),
+                                }
+                            }
+                            Err(_) => break,
+                            _ => break,
                         };
 
                         // =============================================
@@ -64,9 +71,6 @@ pub async fn run(
                         if writer.write_all(response.as_bytes()).await.is_err() {
                             break;
                         }
-
-                        // Clear buffer for next read
-                        line.clear();
                     }
                 });
             }

@@ -1,6 +1,7 @@
 // Declare project modules
 mod command;
 mod persistence;
+mod resp;
 mod server;
 mod store;
 mod wal;

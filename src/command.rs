@@ -1,3 +1,4 @@
+use crate::resp;
 use crate::store::Store;
 
 // =========================================================
@@ -9,18 +10,26 @@ pub enum Command {
 }
 
 impl Command {
-    // Parse raw string input into structured command
-    pub fn parse(input: &str) -> Result<Self, &'static str> {
-        let parts: Vec<&str> = input.trim().split_whitespace().collect();
+    // Parse vec input into structured command
+    pub fn from_vec(args: Vec<String>) -> Result<Self, &'static str> {
+        if args.is_empty() {
+            return Err("ERR empty command");
+        }
 
-        match parts.as_slice() {
-            ["SET", key, value] => Ok(Command::Set(key.to_string(), value.to_string(), None)),
-            ["SET", key, value, "EX", ttl] => {
-                let ttl = ttl.parse::<u64>().map_err(|_| "Invalid TTL")?;
-                Ok(Command::Set(key.to_string(), value.to_string(), Some(ttl)))
+        let cmd = args[0].to_uppercase();
+
+        match cmd.as_str() {
+            "GET" if args.len() == 2 => Ok(Command::Get(args[1].clone())),
+
+            "SET" if args.len() == 3 => Ok(Command::Set(args[1].clone(), args[2].clone(), None)),
+
+            "SET" if args.len() == 5 && args[3].to_uppercase() == "EX" => {
+                let ttl = args[4].parse::<u64>().map_err(|_| "ERR invalid TTL")?;
+
+                Ok(Command::Set(args[1].clone(), args[2].clone(), Some(ttl)))
             }
-            ["GET", key] => Ok(Command::Get(key.to_string())),
-            _ => Err("Invalid command"),
+
+            _ => Err("ERR unknown command"),
         }
     }
 
@@ -29,11 +38,11 @@ impl Command {
         match self {
             Command::Set(key, value, ttl) => {
                 store.set(key, value, ttl);
-                "OK\n".into()
+                resp::encode_simple_string("OK")
             }
             Command::Get(key) => match store.get(&key) {
-                Some(val) => format!("{}\n", val),
-                None => "nil\n".into(),
+                Some(val) => resp::encode_bulk_string(&val),
+                None => resp::encode_null(),
             },
         }
     }
