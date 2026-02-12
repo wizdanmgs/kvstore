@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     // =========================================================
     let store = persistence::load("db.bin").unwrap_or_else(|_| {
         println!("No existing DB found. Starting fresh.");
-        Store::new()
+        Store::new(1000)
     });
 
     // =========================================================
